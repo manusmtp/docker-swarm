@@ -1,2 +1,4 @@
-*_key
-.vagrant
+smaster_key
+sworker1_key
+sworker2_key
+.vagrant/
