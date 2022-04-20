@@ -1,0 +1,2 @@
+---
+docker_swarm_primary_manager_name: "{{ ansible_play_hosts | first }}"

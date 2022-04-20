@@ -1,0 +1,61 @@
+---
+- hosts: vag
+  become: yes
+  vars:
+    docker_swarm_port: "2377"
+    docker_swarm_primary_manager_name: "{{ ansible_play_hosts | first }}"
+    docker_swarm_network_interface: "{{ ansible_default_ipv4.alias|default('enp0s3') }}"
+    
+  tasks:
+  - name: install the pacakges
+    yum: 
+       name: "{{  item }}"
+       state: present
+    with_items:
+        - python3
+        - python3-pip
+
+  
+
+  - name: install the docker modules
+    pip:
+      name: docker 
+      executable: pip3
+
+  - name: Register primary node address
+    set_fact:
+      docker_swarm_addr: "{{ vars['ansible_'+docker_swarm_network_interface]['ipv4']['address'] }}"
+    
+
+  - name: init swarm mode on the first manager
+    docker_swarm:
+      state: present
+      advertise_addr: "{{ docker_swarm_addr }}:{{ docker_swarm_port }}"
+    when:
+     - ansible_hostname == "smaster" 
+    register: _master
+
+  - set_fact:
+      joinToken : "{{  _master.swarm_facts.JoinTokens.Worker }}"
+    when:
+     -  ansible_hostname == "smaster"
+     
+
+
+  - name: Join swarm as worker
+    docker_swarm:
+      state: join
+      join_token: "{{ hostvars[docker_swarm_primary_manager_name].joinToken }}"
+      advertise_addr: "{{ docker_swarm_addr }}"
+      remote_addrs: "{{ hostvars[docker_swarm_primary_manager_name].docker_swarm_addr }}"
+    when:
+     -  ansible_hostname == "sworker1"
+
+  - name: Join swarm as worker2
+    docker_swarm:
+      state: join
+      join_token: "{{ hostvars[docker_swarm_primary_manager_name].joinToken }}"
+      advertise_addr: "{{ docker_swarm_addr }}"
+      remote_addrs: "{{ hostvars[docker_swarm_primary_manager_name].docker_swarm_addr }}"
+    when:
+      -  ansible_hostname == "sworker2"
